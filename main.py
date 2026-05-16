@@ -6,38 +6,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 
-print("Built with CUDA:", tf.test.is_built_with_cuda())
-
-# List all available physical GPU devices
-gpus = tf.config.list_physical_devices('GPU')
-print("Available GPUs:", gpus)
-
-if gpus:
-    print(f"TensorFlow is successfully using CUDA with {len(gpus)} GPU(s)!")
-else:
-    print("TensorFlow cannot find your GPU. It will run on the CPU instead.")
-
-# ----------------------------------------------------
 # 1. CONFIGURATION AND PATHS
-# ----------------------------------------------------
 DATASET_DIR = 'dataset'
 TRAIN_DIR = os.path.join(DATASET_DIR, 'train')
 VALID_DIR = os.path.join(DATASET_DIR, 'valid')
 OUTPUT_DIR = 'metrics_and_graphs'
 
-# Optimized Model Hyperparameters
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
-EPOCHS = 30  # Increased ceiling; EarlyStopping handles precise cutoff
+EPOCHS = 30
 LEARNING_RATE = 1e-4
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 print("TensorFlow Version:", tf.__version__)
 
-# ----------------------------------------------------
 # 2. DATA LOADING AND CLEANING
-# ----------------------------------------------------
 def load_and_clean_annotations(csv_path):
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Annotations file not found at: {csv_path}")
@@ -84,9 +68,7 @@ def create_tf_dataset(df, img_dir, batch_size=32, shuffle=True):
 train_dataset = create_tf_dataset(train_df, TRAIN_DIR, batch_size=BATCH_SIZE, shuffle=True)
 valid_dataset = create_tf_dataset(valid_df, VALID_DIR, batch_size=BATCH_SIZE, shuffle=False)
 
-# ----------------------------------------------------
 # 3. HIGH-ACCURACY CNN ARCHITECTURE (TRANSFER LEARNING + AUGMENTATION)
-# ----------------------------------------------------
 def build_advanced_model(input_shape=(224, 224, 3)):
     # Data Augmentation Layers to combat small dataset limits
     data_augmentation = tf.keras.Sequential([
@@ -97,13 +79,12 @@ def build_advanced_model(input_shape=(224, 224, 3)):
         tf.keras.layers.RandomContrast(0.1)
     ], name="data_augmentation")
 
-    # MobileNetV2 Base Pre-trained on ImageNet
     base_model = tf.keras.applications.MobileNetV2(
         input_shape=input_shape,
         include_top=False,
         weights='imagenet'
     )
-    base_model.trainable = False  # Freeze pre-trained weights
+    base_model.trainable = False
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=input_shape),
@@ -126,7 +107,6 @@ model.compile(
     metrics=['accuracy']
 )
 
-# Callbacks for dynamic tuning
 callbacks = [
     tf.keras.callbacks.EarlyStopping(
         monitor='val_loss', 
@@ -143,9 +123,7 @@ callbacks = [
     )
 ]
 
-# ----------------------------------------------------
 # 4. MODEL TRAINING
-# ----------------------------------------------------
 print("\nStarting Advanced CNN Model Training...")
 history = model.fit(
     train_dataset,
@@ -159,10 +137,7 @@ model_save_path = 'malnourished_healthy_model_advanced.keras'
 model.save(model_save_path)
 print(f"Optimized model weights successfully saved to {model_save_path}")
 
-# ----------------------------------------------------
-# 5. METRICS EVALUATION & GRAPH GENERATION WITH ROC CURVE
-# ----------------------------------------------------
-print("\n📊 Computing evaluation metrics and generating performance graphs...")
+print("\nComputing evaluation metrics and generating performance graphs...")
 
 y_true = valid_df['label'].values
 y_pred_probs = model.predict(valid_dataset).flatten()
@@ -184,7 +159,6 @@ with open(report_text_path, 'w') as f:
 
 print(f"Performance summary saved to {report_text_path}")
 
-# Plot and save Loss Curve
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.plot(history.history['loss'], label='Train Loss', color='#1f77b4', linewidth=2)
 ax.plot(history.history['val_loss'], label='Validation Loss', color='#ff7f0e', linewidth=2)
@@ -197,7 +171,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_DIR, 'loss_curve.png'), dpi=300)
 plt.close(fig)
 
-# Plot and save Accuracy Curve
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.plot(history.history['accuracy'], label='Train Accuracy', color='#1f77b4', linewidth=2)
 ax.plot(history.history['val_accuracy'], label='Validation Accuracy', color='#ff7f0e', linewidth=2)
@@ -210,7 +183,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_DIR, 'accuracy_curve.png'), dpi=300)
 plt.close(fig)
 
-# Plot and save Confusion Matrix Heatmap
 fig, ax = plt.subplots(figsize=(6, 5))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
             xticklabels=['Healthy', 'Malnourished'], 
